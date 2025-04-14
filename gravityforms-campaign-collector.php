@@ -90,7 +90,7 @@ class CampaignCollector
 
   public function set_fields(?array $form = null)
   {
-    $base_filter =  'lvl:gform_campaign_collector/set_fields';
+    $base_filter =  "{$this->_namepsace}:gform_campaign_collector/set_fields";
 
     $this->fields = !empty($form) ? 
       apply_filters("$base_filter/form/{$form['id']}", $this->fields, $form)
