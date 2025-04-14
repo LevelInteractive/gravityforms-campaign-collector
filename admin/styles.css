@@ -1,0 +1,108 @@
+.gform-theme--framework .gform-campaign-collector-notice {
+  border: 1px solid #d5d7e9;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+  padding: 0.5rem 0;
+  margin-bottom: 0.875rem;
+  width: 100%;
+}
+.gform-theme--framework .gform-campaign-collector-notice:hover{
+  box-shadow: 0 1px 2px 0 rgba(18, 25, 97, .06), 0 1px 3px 0 rgba(18, 25, 97, .1);
+}
+
+code.gform-campaign-collector-badge {
+  font-family: 'Fira Code', monospace;
+  font-weight: 500;
+  display: inline-flex;
+  border-radius: 3px;
+  padding: 0.25rem 0.25rem;
+  line-height: 1;
+  border: 1px solid #86d5f4;
+  background-color: #ecf8fd;
+  color: #4b4f63;
+}
+
+.entry-view-field-value--json{
+  padding: 0 !important;
+}
+
+.gform-theme--framework .gform-campaign-collector-notice__top{
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+.gform-theme--framework .gform-campaign-collector-notice__top .gfield-icons{
+  display: flex;
+  align-items: center;
+}
+.gform-theme--framework .gform-campaign-collector-notice__top .gfield-icon{
+  width: 3rem; 
+  display: flex; 
+  justify-content: center;
+}
+.gform-theme--framework .gform-campaign-collector-notice__top .gfield-icon + .gfield-icon{
+  border-left: 1px solid #d5d7e9;
+}
+.gform-theme--framework .gform-campaign-collector-notice__top .gform-icon {
+  font-size: 1.3125rem;
+  line-height: 1;
+}
+.gform-theme--framework .gform-campaign-collector-notice__top .gform-icon--drag-indicator{
+  font-size: 1.625rem;
+  cursor: not-allowed;
+}
+.gform-theme--framework .gform-campaign-collector-notice .badge{
+  background-color: #f6f9fc;
+  block-size: 25px;
+  border: 1px solid #d5d7e9;
+  border-radius: 3px;
+  display: block;
+  font-size: .688rem;
+  font-weight: 600;
+  line-height: 1.563rem;
+  margin-block-end: 0;
+  overflow: hidden;
+  padding-block: 0;
+  padding-inline: 0.625rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gform-theme--framework .gform-campaign-collector-notice__content{
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  margin-top: 0.5rem;
+}
+.gform-theme--framework .gform-campaign-collector-notice__alert{
+  background-color: #f6f9fc;
+  border: 1px solid #d5d7e9;
+  border-left: 0;
+  border-right: 0;
+  color: #4b4f63;
+  font-size: 0.875rem;
+  line-height: 1.563rem;
+  margin: 0 0 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.gform-theme--framework .gform-campaign-collector-notice table{
+  width: 100%;
+}
+.gform-theme--framework .gform-campaign-collector-notice tbody tr:nth-child(odd){
+  background-color: #f6f9fc;
+}
+.gform-theme--framework .gform-campaign-collector-notice tbody tr:nth-child(even){
+  background-color: #fff;
+}
+.gform-theme--framework .gform-campaign-collector-notice th,
+.gform-theme--framework .gform-campaign-collector-notice td {
+  padding: 0.35rem 1rem;
+}
+.gform-theme--framework .gform-campaign-collector-notice th{
+  font-weight: 600;
+  color: #4b4f63;
+}
+.gform-theme--framework .gform-campaign-collector-notice td:last-child, th:last-child{
+  text-align: right;
+}

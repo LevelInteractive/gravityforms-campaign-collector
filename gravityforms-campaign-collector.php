@@ -1,0 +1,372 @@
+<?php
+/**
+ * Plugin Name:       Gravity Forms - Campaign Collector
+ * Plugin URI:        https://www.level.agency
+ * Description:       Extends Gravity Forms to collect common marketing metadata via hidden fields as custom entry meta.
+ * Version:           1.0
+ * Requires at least: 6.3
+ * Requires PHP:      8.0
+ * License:           MIT
+ * Author:            Mike Hennessie, Derek Cavaliero
+ * Author URI:        https://www.level.agency
+ * Text Domain:       lvl:gforms-campaign-collector
+ */
+
+namespace Lvl\GravityFormsCampaignCollector;
+ 
+ if (! defined('WPINC'))
+   die;
+
+class CampaignCollector
+{
+  private string $_namepsace = 'lvl';
+  
+  public array $fields = [];
+  public array $fields_default = [
+    // Campaign Collector Core Fields
+    'cc_anonymous_id' => 'Campaign Collector: Anonymous ID',
+    'cc_attribution_json' => 'Campaign Collector: Attribution JSON',
+    'cc_consent_json' => 'Campaign Collector: Consent JSON',
+
+    // Standard Campaign Fields
+    'utm_source' => 'Source',
+    'utm_medium' => 'Medium',
+    'utm_campaign' => 'Campaign',
+    'utm_term' => 'Term',
+    'utm_content' => 'Content',
+    'utm_id' => 'Campaign ID',
+    'utm_source_platform' => 'Source Platform',
+    'utm_marketing_tactic' => 'Marketing Tactic',
+    'utm_creative_format' => 'Creative Format',
+
+    // Common Click/Client IDs
+    
+    // Google Analytics
+    'ga_client_id' => 'GA4: Client ID',
+    'ga_session_id' => 'GA4: Session ID',
+
+    // Google Ads
+    'gclid' => 'Google Ads: gclid',
+    'gbraid' => 'Google Ads: gbraid',
+    'wbraid' => 'Google Ads: wbraid',
+
+    // Meta Ads
+    '_fbc' => 'Meta Ads: _fbc',
+    '_fbp' => 'Meta Ads: _fbp',
+
+    // Microsoft Ads
+    'msclkid' => 'Microsoft Ads: msclkid',
+
+    // LinkedIn Ads
+    'li_fat_id' => 'LinkedIn Ads: li_fat_id',
+  ];
+
+  public function __construct()
+  {
+    add_action('init', [$this, 'init']);
+  }
+
+  public function init()
+  {
+    $this->set_fields();
+
+    add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
+    add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 10, 2);    
+
+    add_filter('gform_custom_merge_tags', [$this, 'define_merge_tags'], 10, 4);
+    add_filter('gform_replace_merge_tags', [$this, 'replace_merge_tags'], 10, 7);
+
+    add_action('gform_editor_pre_render', [$this, 'add_collection_notice_to_editor'], 10, 2);
+
+    add_filter('gform_entry_detail_meta_boxes', [$this, 'entry_details_meta_box'], 10, 3);
+
+    if (is_admin())
+      add_action('admin_enqueue_scripts', [$this, 'load_stylesheet'], 10, 2);
+
+    if (current_user_can('administrator'))
+      add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
+  }
+
+  public function set_fields()
+  {
+    $this->fields = apply_filters('lvl:gform_campaign_collector/fields', $this->fields_default);
+
+    if (empty($this->fields) || ! is_array($this->fields))
+      $this->fields = $this->fields_default;
+  }
+
+  public function meta_key(string $key): string
+  {
+    // Stores the meta key as lvl:{$key} to avoid collisions with other meta keys.
+    return implode(':', [$this->_namepsace, $key]);
+  }
+
+  public function define_entry_meta(array $entry_meta, int $form): array
+  {
+    foreach ($this->fields as $key => $label) {
+      $entry_meta[$this->meta_key($key)] = [
+        'label' => $label,
+        'is_numeric' => false,
+        'is_default' => false,
+        'is_required' => false,
+        'update_entry_meta_callback' => [$this, 'update_entry_meta'],
+        'context' => 'form',
+      ];
+    }
+
+    return $entry_meta;
+  }
+
+  public function update_entry_meta($key, $lead, $form) 
+  {
+    $key = explode(':', $key)[1];
+
+    if (! array_key_exists($key, $this->fields))
+      return;
+
+    $value = $_POST[$key] ?? '';
+
+    $value = str_ends_with($key, '_json') ? $this->validate_json_value($value) : $this->sanitize_text_value($value);
+
+    return $value;
+  }
+
+  public function add_hidden_fields(string $form_tag, array $form): string
+  {
+    $hidden_fields = [
+      '<div class="gform_campaign_collector_fields" style="display:none;">',
+    ];
+
+    foreach ($this->fields as $key => $label) {
+
+      $value = $_GET[$key] ?? '';
+
+      $hidden_fields[] = '<input type="hidden" name="' . $key . '" value="' . $value . '" />';
+    }
+
+    $hidden_fields[] = '</div>';
+
+    return $form_tag . implode("\n", $hidden_fields);
+  }
+
+  public function define_merge_tags(array $merge_tags, int $form_id, array $fields, string|int $element_id): array
+  {
+    foreach ($this->fields as $key => $label) {
+      $merge_tags[] = [
+        'label' => $label,
+        'tag' => '{' . $this->meta_key($key). '}',
+      ];
+    }
+
+    return $merge_tags;
+  }
+
+  public function replace_merge_tags(string $text, array|bool $form, array|bool $entry, bool $url_encode, bool $esc_html, bool $nl2br, string $format)
+  {
+    return gform_get_meta(rgar($entry, 'id'), $this->meta_key($text)) ?? $text;
+  }
+
+  public function entry_details_meta_box(array $meta_boxes, array $entry, array $form): array
+  {
+    $meta_boxes[] = [
+      'title' => 'Campaign Collector',
+      'context' => 'normal',
+      'priority' => 'high',
+      'callback' => [$this, 'entry_details_meta_fields'],
+    ];
+
+    return $meta_boxes;
+  }
+
+  public function entry_details_meta_fields(array $args)
+  {
+    $form  = $args['form'];
+    $entry = $args['entry'];
+
+    $output = [
+      '<div style="margin: -12px -12px 0;">',
+      '<table cellspacing="0" class="entry-details-table" style="border: 0; border-radius: 0; box-shadow: none; table-layout: fixed;">',
+      '<tbody>',
+    ];
+
+    foreach ($this->fields as $key => $label) {
+
+      $meta_key = $this->meta_key($key);
+      
+      $value = gform_get_meta($entry['id'], $meta_key);
+
+      $type = 'text';
+
+      if (str_ends_with($key, '_json')) {
+        $type = 'json';
+        $value = $this->custom_json_pretty_print(json_decode($value, true));
+        $value = '<pre style="margin: 0; background: #1d2327;"><code class="language-json">' . $value . '</code></pre>'; // <pre style="margin: 0; white-space: pre; max-width: 100%; overflow-x: auto;">
+      }
+      
+      if (empty($value))
+        continue;
+
+      $output[] = implode("\n", [
+        '<tr>',
+        '<td colspan="2" class="entry-view-field-name"><div style="display: flex; align-items: center; justify-content: space-between;"><span>' . $label . '</span><code class="gform-campaign-collector-badge">' . $key . '</code></td>',
+        '</tr>',
+        '<tr>',
+        '<td colspan="2" class="entry-view-field-value entry-view-field-value--' . $type . '" style="font-family: \'Fira Code\', monospace; word-wrap: break-word; white-space: normal;">' . $value . '</td>',
+        '</tr>',
+      ]);
+    }
+
+    $output[] = '</tbody>';
+    $output[] = '</table>';
+    $output[] = '</div>';
+
+    echo implode("\n", $output);
+  }
+
+  private function validate_json_value(string $maybe_json): string
+  {
+    if (strpos($maybe_json, '\"') !== false)
+      $maybe_json = stripslashes($maybe_json);
+    
+    return json_decode($maybe_json) !== null ? $maybe_json : '';
+  }
+
+  public function load_stylesheet()
+  {
+    $page = $_GET['page'] ?? '';
+
+    if (! in_array($page, ['gf_edit_forms', 'gf_entries']))
+      return;
+
+    wp_enqueue_style('font-fira-code', 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap', [], '1.0.0');
+    wp_enqueue_style('gform_campaign_collector_styles', plugin_dir_url(__FILE__) . 'admin/styles.css', [], '1.0.0');
+
+    if ('gf_entries' === $page) {
+      // wp_enqueue_style('prism-css', 'https://cdn.jsdelivr.net/npm/prismjs@latest/themes/prism.min.css', [], '1.0.0');
+      wp_enqueue_style('prism-theme', 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-coldark-dark.css', [], '1.0.0');
+      wp_enqueue_script('prism-core', 'https://cdn.jsdelivr.net/npm/prismjs@latest/components/prism-core.min.js', [], '1.0.0');
+      wp_enqueue_script('prism-autoloader', 'https://cdn.jsdelivr.net/npm/prismjs@latest/plugins/autoloader/prism-autoloader.min.js', [], '1.0.0');
+    }
+
+  }
+  
+  public function add_collection_notice_to_editor($form)
+  {
+    $fields_as_table_rows = implode("\n", array_map(function($key, $label) {
+      return '<tr><td>' . $label . '</td><td><code class="gform-campaign-collector-badge">' . $key . '</code></td></tr>';
+    }, array_keys($this->fields), $this->fields));
+
+    ?>
+    <script>
+      window.addEventListener("load", (event) => {
+
+        const formFields = document.getElementById('gform_fields');
+
+        const notice = document.createElement('details');
+        notice.className = "gform-campaign-collector-notice";
+
+        notice.innerHTML = `
+        <summary class="gform-campaign-collector-notice__top">
+          <div class="gfield-icons">
+            <span class="gfield-icon">
+              <i class="gform-icon gform-icon--drag-indicator"></i>
+            </span>
+            <span class="gfield-icon">
+              <i class="gform-icon gform-icon--hidden"></i>
+            </span>
+          </div>
+          <span class="badge">Campaign Collector: Hidden Fields</span>
+        </summary>
+        <div class="gform-campaign-collector-notice__content">
+          <div class="gform-campaign-collector-notice__alert">
+            All forms are automatically configured to collect the following data as custom entry meta. These fields can be modified/extended via the <code class="gform-campaign-collector-badge">lvl:gform_campaign_collector/fields</code> filter hook in your theme (if needed).
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Meta Field Name</th>
+                <th>HTML <code>&lt;input&gt;</code> Name</th>
+              </tr>
+            </thead>
+            <tbody>
+            <?php echo $fields_as_table_rows; ?>
+            </tbody>
+          </table>
+        </div>
+        `;
+
+        formFields.parentElement.insertBefore(notice, formFields);
+
+      });
+    </script>
+    <?php
+  }
+
+  private function sanitize_text_value(string $unsafe_text)
+  {
+    $safer_text = sanitize_text_field($unsafe_text);
+    return preg_replace('/[^a-zA-Z0-9_()-. ]/', '', $safer_text);
+  }
+
+  private function custom_json_pretty_print($data)
+  {
+    $json = json_encode($data, JSON_PRETTY_PRINT);
+    $json = preg_replace('/^(  +?)\\1(?=[^ ])/m', '$1', $json);
+    
+    return $json;
+  }
+
+  public function add_frontend_notice()
+  {
+    echo <<<HTML
+    <style>
+    .campaign-collector-frontend-notice{
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      gap: 0.25rem;
+      padding: 0.75rem 1rem;
+      border: 1px solid #86d5f4;
+      background-color: #ecf8fd;
+      box-shadow: 0 1px 4px rgba(18,25,97,.0779552);
+      color: #4b4f63;
+      border-radius: 3px;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      font-weight: 400;
+      width: 24rem;
+      position: fixed;
+      bottom: 1rem;
+      left: 1rem;
+      z-index: 1000;
+    }
+    .campaign-collector-frontend-notice a{
+      color: #118BBB;
+    }
+    .campaign-collector-frontend-notice > *:last-child{
+      margin-bottom: 0;
+    }
+    </style>
+    <script>
+      window.addEventListener("load", (event) => {
+        
+        if (window.CampaignCollector !== undefined)
+          return;
+
+        const notice = document.createElement('div');
+        notice.className = "campaign-collector-frontend-notice";
+
+        notice.innerHTML = `
+          <strong>CampaignCollector.js not detected!</strong>
+          <div>Make sure you have the <a href="https://github.com/LevelInteractive/campaign-collector" target="_blank">CampaignCollector.js library</a> loaded globally on the website.</div>
+          <small>This message is only shown to logged in administrators.</small>
+        `;
+
+        document.body.appendChild(notice);
+      });
+    </script>
+    HTML;
+  }
+}
+
+new CampaignCollector();
