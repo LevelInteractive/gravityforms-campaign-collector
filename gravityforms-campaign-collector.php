@@ -14,8 +14,8 @@
 
 namespace Lvl\GravityFormsCampaignCollector;
  
- if (! defined('WPINC'))
-   die;
+if (! defined('WPINC'))
+  die;
 
 class CampaignCollector
 {
