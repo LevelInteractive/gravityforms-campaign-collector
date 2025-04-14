@@ -68,6 +68,7 @@ class CampaignCollector
 
   public function init()
   {
+    $this->fields = $this->fields_default;
     $this->set_fields();
 
     add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
@@ -87,9 +88,14 @@ class CampaignCollector
       add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
   }
 
-  public function set_fields()
+  public function set_fields(?array $form = null)
   {
-    $this->fields = apply_filters('lvl:gform_campaign_collector/fields', $this->fields_default);
+    $base_filter =  'lvl:gform_campaign_collector/set_fields';
+
+    $this->fields = !empty($form) ? 
+      apply_filters("$base_filter/form/{$form['id']}", $this->fields, $form)
+      :
+      apply_filters($base_filter, $this->fields);
 
     if (empty($this->fields) || ! is_array($this->fields))
       $this->fields = $this->fields_default;
@@ -133,6 +139,8 @@ class CampaignCollector
 
   public function add_hidden_fields(string $form_tag, array $form): string
   {
+    $this->set_fields($form);
+
     $hidden_fields = [
       '<div class="gform_campaign_collector_fields" style="display:none;">',
     ];
@@ -279,7 +287,7 @@ class CampaignCollector
         </summary>
         <div class="gform-campaign-collector-notice__content">
           <div class="gform-campaign-collector-notice__alert">
-            All forms are automatically configured to collect the following data as custom entry meta. These fields can be modified/extended via the <code class="gform-campaign-collector-badge">lvl:gform_campaign_collector/fields</code> filter hook in your theme (if needed).
+            All forms are automatically configured to collect the following data as custom entry meta. These fields can be modified/extended via the <code class="gform-campaign-collector-badge">lvl:gform_campaign_collector/set_fields</code> filter hook in your theme (if needed).
           </div>
           <table>
             <thead>
