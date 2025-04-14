@@ -19,7 +19,7 @@ if (! defined('WPINC'))
 
 class CampaignCollector
 {
-  private string $_namepsace = 'lvl';
+  private string $_namespace = 'lvl';
   
   public array $fields = [];
   public array $fields_default = [
@@ -90,7 +90,7 @@ class CampaignCollector
 
   public function set_fields(?array $form = null)
   {
-    $base_filter =  "{$this->_namepsace}:gform_campaign_collector/set_fields";
+    $base_filter =  "{$this->_namespace}:gform_campaign_collector/set_fields";
 
     $this->fields = !empty($form) ? 
       apply_filters("$base_filter/form/{$form['id']}", $this->fields, $form)
@@ -104,7 +104,7 @@ class CampaignCollector
   public function meta_key(string $key): string
   {
     // Stores the meta key as lvl:{$key} to avoid collisions with other meta keys.
-    return implode(':', [$this->_namepsace, $key]);
+    return implode(':', [$this->_namespace, $key]);
   }
 
   public function define_entry_meta(array $entry_meta, int $form): array
