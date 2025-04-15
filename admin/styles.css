@@ -1,4 +1,6 @@
 :root{
+  --base-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,Cantarell, "Helvetica Neue", sans-serif;
+
   --lvl-blue: #86d5f4;
   --lvl-blue-pale: #ecf8fd;
   --lvl-pink: #fd6ef8;
@@ -164,10 +166,19 @@ tbody[data-wp-lists="list:gf_entry"] td{
   font-weight: 500;
 }
 
+tbody[data-wp-lists="list:gf_entry"] td .row-actions a{
+  font-family: var(--base-font);
+  font-weight: 400;
+}
+
 tbody[data-wp-lists="list:gf_entry"] td{
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.postbox-header{
+  border-bottom: 0 !important;
 }
 
 .token.property{
