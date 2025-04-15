@@ -308,7 +308,7 @@ class CampaignCollector
             <thead>
               <tr>
                 <th>Meta Field Name</th>
-                <th>HTML <code>&lt;input&gt;</code> Name</th>
+                <th>Input Name</th>
               </tr>
             </thead>
             <tbody>
