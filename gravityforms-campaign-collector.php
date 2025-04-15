@@ -260,6 +260,10 @@ class CampaignCollector
   
   public function add_collection_notice_to_editor($form)
   {
+    // Note - I don't like this - its a weird pattern to set this but it works for a v1.
+    // Its necessary to make sure the "lvl:gform_campaign_collector/set_fields/form/X" filters run before the output is rendered.
+    $this->set_fields($form);
+
     $fields_as_table_rows = implode("\n", array_map(function($key, $label) {
       return '<tr><td>' . $label . '</td><td><code class="gform-campaign-collector-badge">' . $key . '</code></td></tr>';
     }, array_keys($this->fields), $this->fields));
