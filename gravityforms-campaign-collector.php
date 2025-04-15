@@ -208,7 +208,7 @@ class CampaignCollector
       if (str_ends_with($key, '_json')) {
         $type = 'json';
         $value = $this->custom_json_pretty_print(json_decode($value, true));
-        $value = '<pre style="margin: 0; background: #1d2327;"><code class="language-json">' . $value . '</code></pre>'; // <pre style="margin: 0; white-space: pre; max-width: 100%; overflow-x: auto;">
+        $value = '<pre><code class="language-json">' . $value . '</code></pre>'; // <pre style="margin: 0; white-space: pre; max-width: 100%; overflow-x: auto;">
       }
       
       if (empty($value))
@@ -251,7 +251,7 @@ class CampaignCollector
 
     if ('gf_entries' === $page) {
       // wp_enqueue_style('prism-css', 'https://cdn.jsdelivr.net/npm/prismjs@latest/themes/prism.min.css', [], '1.0.0');
-      wp_enqueue_style('prism-theme', 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-coldark-dark.css', [], '1.0.0');
+      wp_enqueue_style('prism-theme', 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-atom-dark.css', [], '1.0.0');
       wp_enqueue_script('prism-core', 'https://cdn.jsdelivr.net/npm/prismjs@latest/components/prism-core.min.js', [], '1.0.0');
       wp_enqueue_script('prism-autoloader', 'https://cdn.jsdelivr.net/npm/prismjs@latest/plugins/autoloader/prism-autoloader.min.js', [], '1.0.0');
     }

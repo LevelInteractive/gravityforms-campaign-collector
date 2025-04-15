@@ -27,6 +27,12 @@ code.gform-campaign-collector-badge {
   padding: 0 !important;
 }
 
+.entry-view-field-value--json pre[class*="language-"]{
+  border-radius: 0;
+  margin: 0;
+  background: #1d2327;
+}
+
 [data-addon="lvl:gforms-campaign-collector"] summary{
   display: flex;
   width: 100% !important;
@@ -145,4 +151,24 @@ tbody[data-wp-lists="list:gf_entry"] td{
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.token.property{
+  color: #86d5f4 !important;
+}
+
+.token.number{
+  color: #fd6ef8 !important;
+}
+
+.token.string{
+  color: #8ee34d !important;
+}
+
+.token.null{
+  color: #ffaa53 !important;
+}
+
+.token.punctuation{
+  color: #d9def0 !important;
 }
