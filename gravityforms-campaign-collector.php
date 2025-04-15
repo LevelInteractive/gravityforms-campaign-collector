@@ -177,7 +177,7 @@ class CampaignCollector
   public function entry_details_meta_box(array $meta_boxes, array $entry, array $form): array
   {
     $meta_boxes[] = [
-      'title' => 'Campaign Collector',
+      'title' => $this->branding() . 'Campaign Collector: Entry Meta',
       'context' => 'normal',
       'priority' => 'high',
       'callback' => [$this, 'entry_details_meta_fields'],
@@ -257,6 +257,16 @@ class CampaignCollector
     }
 
   }
+
+  public function branding(): string
+  {
+    return <<<HTML
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <rect fill="#000000" width="512" height="512"/>
+      <path fill="#ffffff" d="m90.32,451c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h331.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Zm0-59.45c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h331.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Zm0-59.45c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h175.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Zm0-59.45c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h175.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Zm0-59.45c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h175.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Zm0-59.45c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h175.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Zm0-59.45c-9.18,0-16.65-7.47-16.65-16.65s7.47-16.65,16.65-16.65h175.35c9.18,0,16.65,7.47,16.65,16.65s-7.47,16.65-16.65,16.65H90.32Z"/>
+    </svg>
+    HTML;
+  }
   
   public function add_collection_notice_to_editor($form)
   {
@@ -275,22 +285,23 @@ class CampaignCollector
         const formFields = document.getElementById('gform_fields');
 
         const notice = document.createElement('details');
-        notice.className = "gform-campaign-collector-notice";
+        notice.className = "gform-theme__disable-reset";
+        notice.setAttribute('data-addon', 'lvl:gforms-campaign-collector');
 
         notice.innerHTML = `
-        <summary class="gform-campaign-collector-notice__top">
-          <div class="gfield-icons">
-            <span class="gfield-icon">
+        <summary>
+          <div class="icons">
+            <span class="icon">
               <i class="gform-icon gform-icon--drag-indicator"></i>
             </span>
-            <span class="gfield-icon">
-              <i class="gform-icon gform-icon--hidden"></i>
+            <span class="icon">
+              <?php echo $this->branding() ?>
             </span>
           </div>
-          <span class="badge">Campaign Collector: Hidden Fields</span>
+          <span class="badge">Campaign Collector: Entry Meta</span>
         </summary>
-        <div class="gform-campaign-collector-notice__content">
-          <div class="gform-campaign-collector-notice__alert">
+        <div class="content">
+          <div class="alert">
             All forms are automatically configured to collect the following data as custom entry meta. These fields can be modified/extended via the <code class="gform-campaign-collector-badge">lvl:gform_campaign_collector/set_fields</code> filter hook in your theme (if needed).
           </div>
           <table>
