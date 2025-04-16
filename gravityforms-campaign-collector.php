@@ -72,7 +72,7 @@ class CampaignCollector
     $this->set_fields();
 
     add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
-    add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 10, 2);    
+    add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 20, 2);    
 
     add_filter('gform_custom_merge_tags', [$this, 'define_merge_tags'], 10, 4);
     add_filter('gform_replace_merge_tags', [$this, 'replace_merge_tags'], 10, 7);
@@ -81,8 +81,7 @@ class CampaignCollector
 
     add_filter('gform_entry_detail_meta_boxes', [$this, 'entry_details_meta_box'], 10, 3);
 
-    if (is_admin())
-      add_action('admin_enqueue_scripts', [$this, 'load_stylesheet'], 10, 2);
+    add_action('admin_enqueue_scripts', [$this, 'load_stylesheet'], 10, 2);
 
     if (current_user_can('administrator'))
       add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
@@ -146,15 +145,13 @@ class CampaignCollector
     ];
 
     foreach ($this->fields as $key => $label) {
-
-      $value = $_GET[$key] ?? '';
-
-      $hidden_fields[] = '<input type="hidden" name="' . $key . '" value="' . $value . '" />';
+      $value = isset($_GET[$key]) ? ' value="' . $_GET[$key] . '"' : '';
+      $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $value . ' />';
     }
 
     $hidden_fields[] = '</div>';
 
-    return $form_tag . implode("\n", $hidden_fields);
+    return $form_tag . implode("", $hidden_fields);
   }
 
   public function define_merge_tags(array $merge_tags, int $form_id, array $fields, string|int $element_id): array
@@ -171,7 +168,14 @@ class CampaignCollector
 
   public function replace_merge_tags(string $text, array|bool $form, array|bool $entry, bool $url_encode, bool $esc_html, bool $nl2br, string $format)
   {
-    return gform_get_meta(rgar($entry, 'id'), $this->meta_key($text)) ?? $text;
+    foreach ($this->fields as $key => $label) {
+      $merge_tag = "{{$this->meta_key($key)}}";
+
+      if (strpos($text, $merge_tag) !== false)
+        $text = str_replace($merge_tag, gform_get_meta($entry['id'], $this->meta_key($key)), $text);
+    }
+
+    return $text;
   }
 
   public function entry_details_meta_box(array $meta_boxes, array $entry, array $form): array
