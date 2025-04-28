@@ -152,7 +152,7 @@ class CampaignCollector
 
     foreach ($this->fields as $key => $label) {
       $value = isset($_GET[$key]) ? ' value="' . $_GET[$key] . '"' : '';
-      $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $value . ' />';
+      $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $this->sanitize_text_value($value) . ' />';
     }
 
     $hidden_fields[] = '</div>';
@@ -338,7 +338,7 @@ class CampaignCollector
   private function sanitize_text_value(string $unsafe_text)
   {
     $safer_text = sanitize_text_field($unsafe_text);
-    return preg_replace('/[^a-zA-Z0-9_()-:.\/ ]/', '', $safer_text);
+    return preg_replace('/[^a-zA-Z0-9_-:.\/ ]/', '', $safer_text);
   }
 
   private function custom_json_pretty_print($data)
