@@ -22,6 +22,10 @@ class CampaignCollector
   private string $_namespace = 'lvl';
   
   public array $fields = [];
+  public array $json_fields = [
+    'cc_attribution_json',
+    'cc_consent_json',
+  ];
   public array $fields_default = [
     // Campaign Collector Core Fields
     'cc_anonymous_id' => 'Campaign Collector: Anonymous ID',
@@ -98,6 +102,8 @@ class CampaignCollector
 
     if (empty($this->fields) || ! is_array($this->fields))
       $this->fields = $this->fields_default;
+
+    $this->json_fields = apply_filters("{$this->_namespace}:gform_campaign_collector/json_fields", $this->json_fields);
   }
 
   public function meta_key(string $key): string
@@ -131,7 +137,7 @@ class CampaignCollector
 
     $value = $_POST[$key] ?? '';
 
-    $value = str_ends_with($key, '_json') ? $this->validate_json_value($value) : $this->sanitize_text_value($value);
+    $value = in_array($key, $this->json_fields) ? $this->validate_json_value($value) : $this->sanitize_text_value($value);
 
     return $value;
   }
@@ -209,7 +215,7 @@ class CampaignCollector
 
       $type = 'text';
 
-      if (str_ends_with($key, '_json')) {
+      if (in_array($key, $this->json_fields)) {
         $type = 'json';
         $value = $this->custom_json_pretty_print(json_decode($value, true));
         $value = '<pre><code class="language-json">' . $value . '</code></pre>'; // <pre style="margin: 0; white-space: pre; max-width: 100%; overflow-x: auto;">
@@ -375,11 +381,9 @@ class CampaignCollector
     }
     </style>
     <script>
-      window.addEventListener("load", (event) => {
-        
-        if (window.CampaignCollector !== undefined)
-          return;
+    window.addEventListener("load", (event) => {
 
+      const insertNotice = () => {
         const notice = document.createElement('div');
         notice.className = "campaign-collector-frontend-notice";
 
@@ -390,7 +394,25 @@ class CampaignCollector
         `;
 
         document.body.appendChild(notice);
-      });
+      };
+
+      let count = 0;
+      const limit = 5;
+      const check = setInterval(() => {
+
+        count++;
+
+        let limitReached = count >= limit;
+
+        if (window.CampaignCollector !== undefined || limitReached)
+          clearInterval(check);
+
+        if (limitReached)
+          insertNotice();
+
+      }, 1000);
+
+    });
     </script>
     HTML;
   }
