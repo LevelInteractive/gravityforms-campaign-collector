@@ -3,7 +3,7 @@
  * Plugin Name:       Gravity Forms - Campaign Collector
  * Plugin URI:        https://www.level.agency
  * Description:       Extends Gravity Forms to collect common marketing metadata via hidden fields as custom entry meta.
- * Version:           1.1
+ * Version:           1.2.0
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * License:           MIT
@@ -13,12 +13,15 @@
  */
 
 namespace Lvl\GravityFormsCampaignCollector;
- 
+
 if (! defined('WPINC'))
   die;
 
 class CampaignCollector
 {
+  public static $version = '1.2.0';
+  private static $handle_namespace = 'lvl:gforms-campaign-collector';
+
   private string $_namespace = 'lvl';
   
   public array $fields = [];
@@ -65,18 +68,36 @@ class CampaignCollector
     'li_fat_id' => 'LinkedIn Ads: li_fat_id',
   ];
 
-  public function __construct()
+  private static $instance = null;
+  
+  public static function getInstance()
   {
-    add_action('init', [$this, 'init']);
+    if (self::$instance === null)
+      self::$instance = new self();
+
+    return self::$instance;
   }
 
-  public function init()
+  public function __construct()
   {
     $this->fields = $this->fields_default;
     $this->set_fields();
 
-    add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
+    add_action('init', [$this, 'init']);
+    add_action('admin_init', [$this, 'admin_init']);
+  }
+
+  public function init()
+  {
     add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 20, 2);    
+
+    if (current_user_can('administrator'))
+      add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
+  }
+  
+  public function admin_init()
+  { 
+    add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
 
     add_filter('gform_custom_merge_tags', [$this, 'define_merge_tags'], 10, 4);
     add_filter('gform_replace_merge_tags', [$this, 'replace_merge_tags'], 10, 7);
@@ -85,10 +106,10 @@ class CampaignCollector
 
     add_filter('gform_entry_detail_meta_boxes', [$this, 'entry_details_meta_box'], 10, 3);
 
-    add_action('admin_enqueue_scripts', [$this, 'load_stylesheet'], 10, 2);
-
-    if (current_user_can('administrator'))
-      add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
+    add_filter('gform_noconflict_styles', [$this, 'allow_list_styles'], 10, 1);
+	  add_filter('gform_noconflict_scripts', [$this, 'allow_list_scripts'], 10, 1);
+	  
+    add_action('admin_enqueue_scripts', [$this, 'load_admin_css_js'], 9999, 1);
   }
 
   public function set_fields(?array $form = null)
@@ -249,23 +270,44 @@ class CampaignCollector
     return json_decode($maybe_json) !== null ? $maybe_json : '';
   }
 
-  public function load_stylesheet()
+  public function allow_list_styles(array $handles)
   {
-    $page = $_GET['page'] ?? '';
-
-    if (! in_array($page, ['gf_edit_forms', 'gf_entries']))
-      return;
-
-    wp_enqueue_style('font-fira-code', 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap', [], '1.0.0');
-    wp_enqueue_style('gform_campaign_collector_styles', plugin_dir_url(__FILE__) . 'admin/styles.css', [], '1.0.0');
-
-    if ('gf_entries' === $page) {
-      // wp_enqueue_style('prism-css', 'https://cdn.jsdelivr.net/npm/prismjs@latest/themes/prism.min.css', [], '1.0.0');
-      wp_enqueue_style('prism-theme', 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-atom-dark.css', [], '1.0.0');
-      wp_enqueue_script('prism-core', 'https://cdn.jsdelivr.net/npm/prismjs@latest/components/prism-core.min.js', [], '1.0.0');
-      wp_enqueue_script('prism-autoloader', 'https://cdn.jsdelivr.net/npm/prismjs@latest/plugins/autoloader/prism-autoloader.min.js', [], '1.0.0');
+    foreach ([
+      'fonts',
+      'styles',
+	  //'prism-css',
+      'prism-theme',
+    ] as $style) {
+      $handles[] = self::$handle_namespace . '_' . $style;
     }
 
+    return $handles;
+  }
+	
+  public function allow_list_scripts(array $handles)
+  {
+	  foreach ([
+      'prism-core',
+      'prism-autoloader',
+    ] as $script) {
+      $handles[] = self::$handle_namespace . '_' . $script;
+    }
+
+    return $handles;
+  }
+
+  public function load_admin_css_js(string $hook)
+  {  
+    if (! \RGForms::is_gravity_page())
+      return;
+
+    wp_enqueue_style(self::$handle_namespace . '_fonts', 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap', [], '1.0.0');
+    wp_enqueue_style(self::$handle_namespace . '_styles', plugin_dir_url(__FILE__) . 'admin/styles.css', [], '1.0.0');
+
+    // wp_enqueue_style(self::$handle_namespace . '_prism-css', 'https://cdn.jsdelivr.net/npm/prismjs@latest/themes/prism.min.css', [], '1.0.0');
+    wp_enqueue_style(self::$handle_namespace . '_prism-theme', 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-atom-dark.css', [], '1.0.0');
+    wp_enqueue_script(self::$handle_namespace . '_prism-core', 'https://cdn.jsdelivr.net/npm/prismjs@latest/components/prism-core.min.js', [], '1.0.0');
+    wp_enqueue_script(self::$handle_namespace . '_prism-autoloader', 'https://cdn.jsdelivr.net/npm/prismjs@latest/plugins/autoloader/prism-autoloader.min.js', [], '1.0.0');
   }
 
   public function branding(): string
@@ -418,4 +460,6 @@ class CampaignCollector
   }
 }
 
-new CampaignCollector();
+add_action('plugins_loaded', function() {
+  CampaignCollector::getInstance();
+});
