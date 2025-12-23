@@ -89,7 +89,11 @@ class CampaignCollector
 
   public function init()
   {
-    add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 20, 2);    
+    add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
+    add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 20, 2);   
+
+    add_filter('gform_custom_merge_tags', [$this, 'define_merge_tags'], 10, 4);
+    add_filter('gform_replace_merge_tags', [$this, 'replace_merge_tags'], 10, 7);
 
     if (current_user_can('administrator'))
       add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
@@ -97,11 +101,6 @@ class CampaignCollector
   
   public function admin_init()
   { 
-    add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
-
-    add_filter('gform_custom_merge_tags', [$this, 'define_merge_tags'], 10, 4);
-    add_filter('gform_replace_merge_tags', [$this, 'replace_merge_tags'], 10, 7);
-
     add_action('gform_editor_pre_render', [$this, 'add_collection_notice_to_editor'], 10, 2);
 
     add_filter('gform_entry_detail_meta_boxes', [$this, 'entry_details_meta_box'], 10, 3);
@@ -130,7 +129,8 @@ class CampaignCollector
   public function meta_key(string $key): string
   {
     // Stores the meta key as lvl:{$key} to avoid collisions with other meta keys.
-    return implode(':', [$this->_namespace, $key]);
+    $meta_key = implode(':', [$this->_namespace, $key]);
+    return $meta_key;
   }
 
   public function define_entry_meta(array $entry_meta, int $form): array
