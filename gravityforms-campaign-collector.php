@@ -3,7 +3,7 @@
  * Plugin Name:       Gravity Forms - Campaign Collector
  * Plugin URI:        https://www.level.agency
  * Description:       Extends Gravity Forms to collect common marketing metadata via hidden fields as custom entry meta.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * License:           MIT
@@ -12,14 +12,14 @@
  * Text Domain:       lvl:gforms-campaign-collector
  */
 
-namespace Lvl\GravityFormsCampaignCollector;
+namespace Lvl\GravityForms\CampaignCollector;
 
 if (! defined('WPINC'))
   die;
 
 class CampaignCollector
 {
-  public static $version = '1.2.0';
+  public static $version = '1.2.1';
   private static $handle_namespace = 'lvl:gforms-campaign-collector';
 
   private string $_namespace = 'lvl';
@@ -101,6 +101,9 @@ class CampaignCollector
   
   public function admin_init()
   { 
+    require_once __DIR__ . '/lib/Updater.php';
+    $updater = new Updater(__FILE__, self::$version);
+
     add_action('gform_editor_pre_render', [$this, 'add_collection_notice_to_editor'], 10, 2);
 
     add_filter('gform_entry_detail_meta_boxes', [$this, 'entry_details_meta_box'], 10, 3);
