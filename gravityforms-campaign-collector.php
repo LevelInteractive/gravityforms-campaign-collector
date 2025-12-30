@@ -286,7 +286,6 @@ class CampaignCollector
     foreach ([
       'fonts',
       'styles',
-	  //'prism-css',
       'prism-theme',
     ] as $style) {
       $handles[] = self::namespace($style);
