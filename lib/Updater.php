@@ -160,8 +160,6 @@ class Updater
       'headers' => self::get_default_headers(),
     ]);
 
-    error_log(print_r($response, true));
-
     if (is_wp_error($response))
       return false;
 
