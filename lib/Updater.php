@@ -7,140 +7,210 @@ if (! defined('WPINC'))
 
 class Updater
 {
-  private $plugin_file;
-  private $plugin_slug;
-  private $version;
-  private $update_uri;
-  private $remote_data = null;
+  private string $file;
+  private string $slug;
+  private string $version;
+  private string $type;
+  
+  private static string $base_uri = 'https://wordpress.level-cdn.com/api/packages';
 
-  public function __construct($plugin_file, $version) 
+  private ?array $remote_data = null;
+
+  public function __construct(string $file, string $version, string $type = 'plugin') 
   {
-    $this->plugin_file = $plugin_file;
-    $this->plugin_slug = basename($plugin_file, '.php');
-    $this->update_uri = "https://wordpress.level-cdn.com/api/plugins/{$this->plugin_slug}/versions/latest";
+    $this->file = $file;
+    $this->slug = basename(dirname($this->file));
     $this->version = $version;
+    $this->type = $type;
 
-    add_filter('pre_set_site_transient_update_plugins', [$this, 'checkForUpdate']);
-    add_filter('plugins_api', [$this, 'pluginInfo'], 20, 3);
+    add_action('admin_init', [$this, 'init']);
   }
 
-  public function checkForUpdate($transient) 
+  public function init(): void
+  {
+    if ($this->type === 'plugin') {
+      add_filter('pre_set_site_transient_update_plugins', [$this, 'check_for_update']);
+      add_filter('plugins_api', [$this, 'package_info'], 20, 3);
+    } else {
+      add_filter('pre_set_site_transient_update_themes', [$this, 'check_for_update']);
+      add_filter('themes_api', [$this, 'package_info'], 20, 3);
+    }
+
+    add_filter('upgrader_pre_install', [$this, 'pre_install'], 10, 2);
+  }
+
+  private function get_endpoint(string $path = ''): string
+  {
+    return self::$base_uri . "/{$this->slug}" . $path;
+  }
+
+  public function check_for_update($transient) 
   {
     if (empty($transient->checked))
       return $transient;
 
-    $plugin_path = plugin_basename($this->plugin_file);
+    $identifier = $this->type === 'plugin' 
+      ? "{$this->slug}/{$this->slug}.php" 
+      : $this->slug;
         
-    if (!isset($transient->checked[$plugin_path]))
+    if (!isset($transient->checked[$identifier]))
       return $transient;
 
-    $remote_data = $this->getRemoteData();
+    $remote_data = $this->get_remote_data();
       
     if (!$remote_data)
       return $transient;
 
-    $remote_version = $remote_data['wordpress']['new_version'] ?? false;
+    $release = $remote_data['releases'][0] ?? null;
+
+    if (!$release)
+      return $transient;
+
+    $remote_version = $release['version'] ?? false;
 
     if (!$remote_version || !version_compare($this->version, $remote_version, '<'))
       return $transient;
 
-    $transient->response[$plugin_path] = (object) [
-      'slug' => $this->plugin_slug,
-      'new_version' => $remote_version,
-      'package' => $remote_data['wordpress']['package'] ?? '',
-      'url' => $remote_data['wordpress']['details_url'] ?? '',
-    ];
+    if ($this->type === 'plugin') {
+      $transient->response[$identifier] = (object) [
+        'slug' => $this->slug,
+        'plugin' => $identifier,
+        'new_version' => $remote_version,
+        'package' => $release['download_url'] ?? '',
+        'url' => $release['html_url'] ?? '',
+      ];
+    } else {
+      $transient->response[$identifier] = [
+        'theme' => $this->slug,
+        'new_version' => $remote_version,
+        'package' => $release['download_url'] ?? '',
+        'url' => $release['html_url'] ?? '',
+      ];
+    }
 
     return $transient;
   }
 
-  public function pluginInfo($result, $action, $args) 
+  public function pre_install($response, array $args): mixed
   {
-    if ($action !== 'plugin_information')
+    $is_plugin = isset($args['plugin']) && str_starts_with($args['plugin'], $this->slug . '/');
+    $is_theme = isset($args['theme']) && $args['theme'] === $this->slug;
+
+    if (!$is_plugin && !$is_theme)
+      return $response;
+
+    if (is_dir(dirname($this->file) . '/.git'))
+      return new \WP_Error('git_present', "Update blocked: {$this->slug} contains a .git directory.");
+
+    return $response;
+  }
+
+  public function package_info($result, $action, $args) 
+  {
+    $expected_action = $this->type === 'plugin' ? 'plugin_information' : 'theme_information';
+
+    if ($action !== $expected_action)
       return $result;
 
-    if (!isset($args->slug) || $args->slug !== $this->plugin_slug)
+    if (!isset($args->slug) || $args->slug !== $this->slug)
       return $result;
 
-    $remote_data = $this->getRemoteData();
+    $remote_data = $this->get_remote_data();
 
     if (!$remote_data)
       return $result;
 
-    $version_data = $remote_data['version'] ?? [];
-    $wp_data = $remote_data['wordpress'] ?? [];
+    $package = $remote_data['package'] ?? [];
+    $release = $remote_data['releases'][0] ?? [];
 
     return (object) [
-      'name' => $this->plugin_slug,
-      'slug' => $this->plugin_slug,
-      'version' => $wp_data['new_version'] ?? $this->version,
-      'author' => $version_data['author']['login'] ?? '',
-      'author_profile' => $version_data['author']['html_url'] ?? '',
-      'homepage' => $version_data['html_url'] ?? '',
-      'download_link' => $wp_data['package'] ?? '',
-      'trunk' => $wp_data['package'] ?? '',
-      'last_updated' => $version_data['published_at'] ?? '',
+      'name' => $package['name'] ?? $this->slug,
+      'slug' => $this->slug,
+      'version' => $release['version'] ?? $this->version,
+      'author' => $release['author']['login'] ?? '',
+      'author_profile' => $release['author']['url'] ?? '',
+      'homepage' => $release['html_url'] ?? '',
+      'download_link' => $release['download_url'] ?? '',
+      'trunk' => $release['download_url'] ?? '',
+      'last_updated' => $release['published_at'] ?? '',
       'sections' => [
-        // 'description' => $wp_data['release_notes'] ?? '',
-        'changelog' => $this->formatChangelog($version_data),
+        'description' => $package['name'] ?? '',
+        'changelog' => $this->format_change_log($remote_data['releases'] ?? []),
       ],
     ];
   }
 
-  private function getRemoteData() 
+  public static function get_default_headers(): array 
+  {
+    return [
+      'Accept' => 'application/json',
+      'User-Agent' => 'Lvl/WordPress/Updater',
+      'X-WordPress-Version' => get_bloginfo('version'),
+      'X-WordPress-Hostname' => parse_url(home_url(), PHP_URL_HOST),
+    ];
+  }
+
+  private function get_remote_data(): array|false
   {
     if ($this->remote_data !== null)
       return $this->remote_data;
 
-    $cache_key = 'lvl_updater_' . $this->plugin_slug;
-    $cached = get_transient($cache_key);
-
-    if ($cached !== false) {
-      $this->remote_data = $cached;
-      return $this->remote_data;
-    }
-
-    $response = wp_remote_get($this->update_uri, [
+    $response = wp_remote_get($this->get_endpoint(), [
       'timeout' => 10,
-      'headers' => [
-        'Accept' => 'application/json',
-      ],
+      'headers' => self::get_default_headers(),
     ]);
 
-    if (is_wp_error($response)) {
-      error_log('Updater Error: ' . $response->get_error_message());
+    error_log(print_r($response, true));
+
+    if (is_wp_error($response))
       return false;
-    }
 
     $status_code = wp_remote_retrieve_response_code($response);
     
-    if ($status_code !== 200) {
-      error_log("Updater Error: HTTP {$status_code} from {$this->update_uri}");
+    if ($status_code !== 200)
       return false;
-    }
 
     $body = wp_remote_retrieve_body($response);
     $data = json_decode($body, true);
     
-    if (json_last_error() !== JSON_ERROR_NONE) {
-      error_log('Updater Error: Invalid JSON response');
+    if (json_last_error() !== JSON_ERROR_NONE)
       return false;
-    }
 
-    set_transient($cache_key, $data, HOUR_IN_SECONDS * 6);
-    
     $this->remote_data = $data;
     return $this->remote_data;
   }
 
-  private function formatChangelog($version_data) 
+  private function format_change_log(array $releases = []): string
   {
-    if (empty($version_data['body']))
-      return '';
+    foreach($releases as $release) {
 
-    $changelog = "<h4>{$version_data['tag_name']}</h4>";
-    $changelog .= wpautop($version_data['body']);
+      if (empty($release['notes']['html']))
+        continue;
 
-    return $changelog;
+      $changelog[] = "<h3>{$release['tag_name']}</h3>" . $release['notes']['html'];
+    }
+
+    return implode('', $changelog);
+  }
+
+  public function send_analytic_event(string $action): void
+  {
+    wp_remote_post($this->get_endpoint("/analytics/{$action}"), [
+      'timeout' => 5,
+      'headers' => self::get_default_headers(),
+      'body' => [
+        'php_version' => PHP_VERSION,
+      ],
+    ]);
+  }
+
+  public function on_activate(): void
+  {
+    $this->send_analytic_event('activate');
+  }
+
+  public function on_deactivate(): void
+  {
+    $this->send_analytic_event('deactivate');
   }
 }

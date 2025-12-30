@@ -7,9 +7,8 @@
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * License:           MIT
- * Author:            Mike Hennessie, Derek Cavaliero
+ * Author:            Derek Cavaliero, Mike Hennessie (Level Agency)
  * Author URI:        https://www.level.agency
- * Text Domain:       lvl:gforms-campaign-collector
  */
 
 namespace Lvl\GravityForms\CampaignCollector;
@@ -17,18 +16,16 @@ namespace Lvl\GravityForms\CampaignCollector;
 if (! defined('WPINC'))
   die;
 
+const VERSION = '1.2.1';
+
 class CampaignCollector
 {
-  public static $version = '1.2.1';
-  private static $handle_namespace = 'lvl:gforms-campaign-collector';
+  public static string $_global_namespace = 'lvl';
+  public static string $_plugin_namespace = 'gravityforms/campaign_collector';
+  private static $instance = null;
 
-  private string $_namespace = 'lvl';
-  
   public array $fields = [];
-  public array $json_fields = [
-    'cc_attribution_json',
-    'cc_consent_json',
-  ];
+
   public array $fields_default = [
     // Campaign Collector Core Fields
     'cc_anonymous_id' => 'Campaign Collector: Anonymous ID',
@@ -56,6 +53,7 @@ class CampaignCollector
     'gclid' => 'Google Ads: gclid',
     'gbraid' => 'Google Ads: gbraid',
     'wbraid' => 'Google Ads: wbraid',
+    'dclid' => 'Google Ads: dclid',
 
     // Meta Ads
     '_fbc' => 'Meta Ads: _fbc',
@@ -66,16 +64,28 @@ class CampaignCollector
 
     // LinkedIn Ads
     'li_fat_id' => 'LinkedIn Ads: li_fat_id',
+
+    // TikTok Ads
+    'ttclid' => 'TikTok Ads: ttclid',
   ];
 
-  private static $instance = null;
-  
-  public static function getInstance()
+  public array $json_fields = [
+    'cc_attribution_json',
+    'cc_consent_json',
+  ];
+
+  public static function instance()
   {
     if (self::$instance === null)
       self::$instance = new self();
 
     return self::$instance;
+  }
+
+  public static function namespace(?string $append): string
+  {
+    $base = self::$_global_namespace . ':' . self::$_plugin_namespace;
+    return $append ? $base . '/' . $append : $base;
   }
 
   public function __construct()
@@ -101,9 +111,6 @@ class CampaignCollector
   
   public function admin_init()
   { 
-    require_once __DIR__ . '/lib/Updater.php';
-    $updater = new Updater(__FILE__, self::$version);
-
     add_action('gform_editor_pre_render', [$this, 'add_collection_notice_to_editor'], 10, 2);
 
     add_filter('gform_entry_detail_meta_boxes', [$this, 'entry_details_meta_box'], 10, 3);
@@ -116,7 +123,7 @@ class CampaignCollector
 
   public function set_fields(?array $form = null)
   {
-    $base_filter =  "{$this->_namespace}:gform_campaign_collector/set_fields";
+    $base_filter = self::namespace('set_fields');
 
     $this->fields = !empty($form) ? 
       apply_filters("$base_filter/form/{$form['id']}", $this->fields, $form)
@@ -126,20 +133,20 @@ class CampaignCollector
     if (empty($this->fields) || ! is_array($this->fields))
       $this->fields = $this->fields_default;
 
-    $this->json_fields = apply_filters("{$this->_namespace}:gform_campaign_collector/json_fields", $this->json_fields);
+    $this->json_fields = apply_filters(self::namespace('json_fields'), $this->json_fields);
   }
 
-  public function meta_key(string $key): string
+  public static function meta_key(string $key): string
   {
     // Stores the meta key as lvl:{$key} to avoid collisions with other meta keys.
-    $meta_key = implode(':', [$this->_namespace, $key]);
+    $meta_key = implode(':', [self::$_global_namespace, $key]);
     return $meta_key;
   }
 
   public function define_entry_meta(array $entry_meta, int $form): array
   {
     foreach ($this->fields as $key => $label) {
-      $entry_meta[$this->meta_key($key)] = [
+      $entry_meta[self::meta_key($key)] = [
         'label' => $label,
         'is_numeric' => false,
         'is_default' => false,
@@ -175,8 +182,9 @@ class CampaignCollector
     ];
 
     foreach ($this->fields as $key => $label) {
-      $value = isset($_GET[$key]) ? ' value="' . $this->sanitize_text_value($_GET[$key]) . '"' : '';
-      $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $value . ' />';
+      $value = apply_filters(self::namespace("field_value/$key"), $_GET[$key], $form);
+      $value_attr = isset($value) ? ' value="' . $this->sanitize_text_value($value) . '"' : '';
+      $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $value_attr . ' />';
     }
 
     $hidden_fields[] = '</div>';
@@ -189,7 +197,7 @@ class CampaignCollector
     foreach ($this->fields as $key => $label) {
       $merge_tags[] = [
         'label' => $label,
-        'tag' => '{' . $this->meta_key($key). '}',
+        'tag' => '{' . self::meta_key($key). '}',
       ];
     }
 
@@ -199,10 +207,10 @@ class CampaignCollector
   public function replace_merge_tags(string $text, array|bool $form, array|bool $entry, bool $url_encode, bool $esc_html, bool $nl2br, string $format)
   {
     foreach ($this->fields as $key => $label) {
-      $merge_tag = "{{$this->meta_key($key)}}";
+      $merge_tag = "{{self::meta_key($key)}}";
 
       if (strpos($text, $merge_tag) !== false)
-        $text = str_replace($merge_tag, gform_get_meta($entry['id'], $this->meta_key($key)), $text);
+        $text = str_replace($merge_tag, gform_get_meta($entry['id'], self::meta_key($key)), $text);
     }
 
     return $text;
@@ -211,7 +219,7 @@ class CampaignCollector
   public function entry_details_meta_box(array $meta_boxes, array $entry, array $form): array
   {
     $meta_boxes[] = [
-      'title' => $this->branding() . 'Campaign Collector: Entry Meta',
+      'title' => self::branding() . 'Campaign Collector: Entry Meta',
       'context' => 'normal',
       'priority' => 'high',
       'callback' => [$this, 'entry_details_meta_fields'],
@@ -233,7 +241,7 @@ class CampaignCollector
 
     foreach ($this->fields as $key => $label) {
 
-      $meta_key = $this->meta_key($key);
+      $meta_key = self::meta_key($key);
       
       $value = gform_get_meta($entry['id'], $meta_key);
 
@@ -281,7 +289,7 @@ class CampaignCollector
 	  //'prism-css',
       'prism-theme',
     ] as $style) {
-      $handles[] = self::$handle_namespace . '_' . $style;
+      $handles[] = self::namespace($style);
     }
 
     return $handles;
@@ -293,7 +301,7 @@ class CampaignCollector
       'prism-core',
       'prism-autoloader',
     ] as $script) {
-      $handles[] = self::$handle_namespace . '_' . $script;
+      $handles[] = self::namespace($script);
     }
 
     return $handles;
@@ -304,16 +312,15 @@ class CampaignCollector
     if (! \RGForms::is_gravity_page())
       return;
 
-    wp_enqueue_style(self::$handle_namespace . '_fonts', 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap', [], '1.0.0');
-    wp_enqueue_style(self::$handle_namespace . '_styles', plugin_dir_url(__FILE__) . 'admin/styles.css', [], '1.0.0');
+    wp_enqueue_style(self::namespace('fonts'), 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap', [], '1.0.0');
+    wp_enqueue_style(self::namespace('styles'), plugin_dir_url(__FILE__) . 'admin/styles.css', [], '1.0.0');
 
-    // wp_enqueue_style(self::$handle_namespace . '_prism-css', 'https://cdn.jsdelivr.net/npm/prismjs@latest/themes/prism.min.css', [], '1.0.0');
-    wp_enqueue_style(self::$handle_namespace . '_prism-theme', 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-atom-dark.css', [], '1.0.0');
-    wp_enqueue_script(self::$handle_namespace . '_prism-core', 'https://cdn.jsdelivr.net/npm/prismjs@latest/components/prism-core.min.js', [], '1.0.0');
-    wp_enqueue_script(self::$handle_namespace . '_prism-autoloader', 'https://cdn.jsdelivr.net/npm/prismjs@latest/plugins/autoloader/prism-autoloader.min.js', [], '1.0.0');
+    wp_enqueue_style(self::namespace('prism-theme'), 'https://cdn.jsdelivr.net/npm/prism-themes@latest/themes/prism-atom-dark.css', [], '1.0.0');
+    wp_enqueue_script(self::namespace('prism-core'), 'https://cdn.jsdelivr.net/npm/prismjs@latest/components/prism-core.min.js', [], '1.0.0');
+    wp_enqueue_script(self::namespace('prism-autoloader'), 'https://cdn.jsdelivr.net/npm/prismjs@latest/plugins/autoloader/prism-autoloader.min.js', [], '1.0.0');
   }
 
-  public function branding(): string
+  public static function branding(): string
   {
     return <<<HTML
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -350,7 +357,7 @@ class CampaignCollector
               <i class="gform-icon gform-icon--drag-indicator"></i>
             </span>
             <span class="icon">
-              <?php echo $this->branding() ?>
+              <?php echo self::branding() ?>
             </span>
           </div>
           <span class="badge">Campaign Collector: Entry Meta</span>
@@ -463,6 +470,10 @@ class CampaignCollector
   }
 }
 
-add_action('plugins_loaded', function() {
-  CampaignCollector::getInstance();
-});
+require_once __DIR__ . '/lib/Updater.php';
+$updater = new Updater(__FILE__, VERSION);
+
+register_activation_hook(__FILE__, [$updater, 'on_activate']);
+register_deactivation_hook(__FILE__, [$updater, 'on_deactivate']);
+
+CampaignCollector::instance();
