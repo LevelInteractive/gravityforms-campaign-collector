@@ -171,7 +171,7 @@ class Updater
     if ($this->remote_data !== null)
       return $this->remote_data;
 
-    $response = wp_remote_get($this->get_endpoint(), [
+    $response = wp_remote_get($this->get_endpoint() . '?action=version_check', [
       'timeout' => 10,
       'headers' => self::get_default_headers(),
     ]);
