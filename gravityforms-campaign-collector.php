@@ -182,7 +182,7 @@ class CampaignCollector
     ];
 
     foreach ($this->fields as $key => $label) {
-      $value = apply_filters(self::namespace("field_value/$key"), $_GET[$key], $form);
+      $value = apply_filters(self::namespace("field_value/$key"), ($_GET[$key] ?? ''), $form);
       $value_attr = isset($value) ? ' value="' . $this->sanitize_text_value($value) . '"' : '';
       $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $value_attr . ' />';
     }
