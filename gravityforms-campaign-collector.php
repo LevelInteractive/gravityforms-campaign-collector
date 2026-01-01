@@ -3,7 +3,7 @@
  * Plugin Name:       Gravity Forms - Campaign Collector
  * Plugin URI:        https://www.level.agency
  * Description:       Extends Gravity Forms to collect common marketing metadata via hidden fields as custom entry meta.
- * Version:           1.3.1
+ * Version:           1.3.2
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * License:           MIT
@@ -16,7 +16,7 @@ namespace Lvl\GravityForms\CampaignCollector;
 if (! defined('WPINC'))
   die;
 
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 
 class CampaignCollector
 {
@@ -105,7 +105,7 @@ class CampaignCollector
     add_filter('gform_custom_merge_tags', [$this, 'define_merge_tags'], 10, 4);
     add_filter('gform_replace_merge_tags', [$this, 'replace_merge_tags'], 10, 7);
 
-    if (current_user_can('administrator'))
+    if (current_user_can('manage_options'))
       add_action('wp_footer', [$this, 'add_frontend_notice'], 10, 2);
   }
   
@@ -183,8 +183,8 @@ class CampaignCollector
 
     foreach ($this->fields as $key => $label) {
       $value = apply_filters(self::namespace("field_value/$key"), ($_GET[$key] ?? ''), $form);
-      $value_attr = isset($value) ? ' value="' . $this->sanitize_text_value($value) . '"' : '';
-      $hidden_fields[] = '<input type="hidden" name="' . $key . '"' . $value_attr . ' />';
+      $value_attr = isset($value) ? ' value="' . esc_attr($this->sanitize_text_value($value)) . '"' : '';
+      $hidden_fields[] = '<input type="hidden" name="' . esc_attr($key) . '"' . $value_attr . ' />';
     }
 
     $hidden_fields[] = '</div>';
@@ -241,6 +241,8 @@ class CampaignCollector
 
     foreach ($this->fields as $key => $label) {
 
+      $label = esc_html($label);
+
       $meta_key = self::meta_key($key);
       
       $value = gform_get_meta($entry['id'], $meta_key);
@@ -250,7 +252,9 @@ class CampaignCollector
       if (in_array($key, $this->json_fields)) {
         $type = 'json';
         $value = $this->custom_json_pretty_print(json_decode($value, true));
-        $value = '<pre><code class="language-json">' . $value . '</code></pre>'; // <pre style="margin: 0; white-space: pre; max-width: 100%; overflow-x: auto;">
+        $value = '<pre><code class="language-json">' . esc_html($value) . '</code></pre>'; // <pre style="margin: 0; white-space: pre; max-width: 100%; overflow-x: auto;">
+      } else {
+        $value = esc_html($value);
       }
       
       if (empty($value))
@@ -258,7 +262,7 @@ class CampaignCollector
 
       $output[] = implode("\n", [
         '<tr>',
-        '<td colspan="2" class="entry-view-field-name"><div style="display: flex; align-items: center; justify-content: space-between;"><span>' . $label . '</span><code class="gform-campaign-collector-badge">' . $key . '</code></td>',
+        '<td colspan="2" class="entry-view-field-name"><div style="display: flex; align-items: center; justify-content: space-between;"><span>' . esc_html($label) . '</span><code class="gform-campaign-collector-badge">' . esc_html($key) . '</code></td>',
         '</tr>',
         '<tr>',
         '<td colspan="2" class="entry-view-field-value entry-view-field-value--' . $type . '" style="font-family: \'Fira Code\', monospace; word-wrap: break-word; white-space: normal;">' . $value . '</td>',
@@ -336,7 +340,7 @@ class CampaignCollector
     $this->set_fields($form);
 
     $fields_as_table_rows = implode("\n", array_map(function($key, $label) {
-      return '<tr><td>' . $label . '</td><td><code class="gform-campaign-collector-badge">' . $key . '</code></td></tr>';
+      return '<tr><td>' . esc_html($label) . '</td><td><code class="gform-campaign-collector-badge">' . esc_html($key) . '</code></td></tr>';
     }, array_keys($this->fields), $this->fields));
 
     ?>
