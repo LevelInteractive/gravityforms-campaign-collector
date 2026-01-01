@@ -140,13 +140,29 @@ class Updater
     ];
   }
 
+  public static function get_environment_versions(): array
+  {
+    global $wpdb;
+
+    return [
+      'php' => PHP_VERSION,
+      'wordpress' => get_bloginfo('version'),
+      'mysql' => $wpdb->db_version(),
+    ];
+  }
+
   public static function get_default_headers(): array 
   {
+    $versions = self::get_environment_versions();
+
     return [
       'Accept' => 'application/json',
       'User-Agent' => 'Lvl/WordPress/Updater',
-      'X-WordPress-Version' => get_bloginfo('version'),
+      'X-WordPress-Version' => $versions['wordpress'],
+      'X-PHP-Version' => $versions['php'],
+      'X-MySQL-Version' => $versions['mysql'],
       'X-WordPress-Hostname' => parse_url(home_url(), PHP_URL_HOST),
+      'X-Server-Software' => $_SERVER['SERVER_SOFTWARE'] ?? '?',
     ];
   }
 
