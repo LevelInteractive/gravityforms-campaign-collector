@@ -367,7 +367,7 @@ class CampaignCollector
         </summary>
         <div class="content">
           <div class="alert">
-            All forms are automatically configured to collect the following data as custom entry meta. These fields can be modified/extended via the <code class="gform-campaign-collector-badge">lvl:gform_campaign_collector/set_fields</code> filter hook in your theme (if needed).
+            All forms are automatically configured to collect the following data as custom entry meta. These fields can be modified/extended via the <code class="gform-campaign-collector-badge">lvl:gravityforms/campaign_collector/set_fields</code> filter hook in your theme (if needed).
           </div>
           <table>
             <thead>
