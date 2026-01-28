@@ -90,15 +90,15 @@ class CampaignCollector
 
   public function __construct()
   {
-    $this->fields = $this->fields_default;
-    $this->set_fields();
-
     add_action('init', [$this, 'init']);
     add_action('admin_init', [$this, 'admin_init']);
   }
 
   public function init()
   {
+    $this->fields = $this->fields_default;$this->fields = $this->fields_default;
+    $this->set_fields();
+
     add_filter('gform_entry_meta', [$this, 'define_entry_meta'], 10, 2);
     add_filter('gform_form_tag', [$this, 'add_hidden_fields'], 20, 2);   
 
