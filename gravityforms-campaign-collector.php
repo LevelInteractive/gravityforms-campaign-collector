@@ -312,7 +312,7 @@ class CampaignCollector
 
   public function load_admin_css_js(string $hook)
   {  
-    if (! \RGForms::is_gravity_page())
+    if (! \GFForms::is_gravity_page())
       return;
 
     wp_enqueue_style(self::namespace('fonts'), 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap', [], '1.0.0');
